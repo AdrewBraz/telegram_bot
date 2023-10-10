@@ -1,43 +1,10 @@
 import TelegramBot from 'node-telegram-bot-api'
-import fetch from 'node-fetch'
-import download from './download'
 import { format } from 'date-fns'
-import fs from 'fs'
-import { readdirSync, statSync } from 'fs'
+import getDirectoryStructure from './getDirectoryStructure'
 
 
 const date = new Date().getFullYear()
 const pathName = `\\\\172.16.11.205\\mc_scans\\${date}\\`
-
-const sortFunc = ( list) => {
-    if(list.length <= 1){
-        return list
-    }
-    const pivotIndex = Math.floor(list.length / 2)
-    const pivot = list[pivotIndex]
-    const less = []
-    const greater = []
-    for(let i = 0; i < list.length; i++){
-        if(i === pivotIndex){
-            continue
-        }
-        if( Number(list[i]) < Number(pivot)){
-            less.push(list[i])
-        } else {
-            greater.push(list[i])
-        }
-    }
-    return [...sortFunc(less), pivot, ...sortFunc(greater)]
-}
-
-const sortHistoryTypes = (listOfDirs) =>  listOfDirs.reduce((acc, item) => {
-  if(item.length >= 5){
-    acc.dayHosp.push(item)
-    return acc
-  }
-  acc.roundHosp.push(item)
-  return acc
-}, {roundHosp: [], dayHosp: []})
 
 String.prototype.between = function(arr){
     const min = Math.min.apply(Math, arr)
@@ -45,54 +12,48 @@ String.prototype.between = function(arr){
     return Number(this) > Number(min) && Number(this) <= Number(max)
 }
 
-const buildList = (path) => {
-    const monthNames = readdirSync(path)
-    const obj = {}
-    for(let i = 0; i < monthNames.length ; i++){
-        if(monthNames[i] ){
-            const dirnames = readdirSync(`${pathName}\\${monthNames[i]}`)
-            const { roundHosp, dayHosp } = sortHistoryTypes(dirnames)
-            const sortedRoundHosp = sortFunc(roundHosp)
-            const sortedDayHosp = sortFunc(dayHosp)
-            const roundHospRange = [sortedRoundHosp[0], sortedRoundHosp[sortedRoundHosp.length - 1]]
-            const dayHospRange = [sortedDayHosp[0], sortedDayHosp[sortedDayHosp.length - 1]]
-            obj[monthNames[i]] = { roundHospRange, dayHospRange}
-        }
-    }
 
-    console.log(obj)
 
+const arch = getDirectoryStructure(pathName)
+const keys = Object.keys(arch)
+
+const getFullPath = (history, arch) => {
+    let i = 0
+    let result = pathName
+    do{
+        i = i + 1
+        result = `${pathName}${keys[i]}`
+    }while(!history.between(arch[keys[i]].roundHospRange))
+    return `${result}\\${history}`
 }
 
-console.log(buildList(pathName))
+const resPath = getFullPath('2322', arch)
 
-// const BOT_TOKEN = '2064238273:AAFEVdDRRvewDRkXAW4_Xow-RZ-47eiAMMc'
-// const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-// const diskPath = `\Z:\\Pol`
-
-// const patientData = {
-//     fio: '',
-//     photoUrl: ''
-// }
-
-// const regexp = /([А-ЯЁа-яё]+)\s([А-ЯЁа-яё]+)\s([А-ЯЁа-яё]+)/
-
-// const replacer = (match, p1, p2, p3) => [p1[0].toUpperCase()+p1.slice(1), p2[0].toUpperCase(), p3[0].toUpperCase()].join(' ')
-
-
-
-// bot.onText(/\/start/, (msg) => {
-//     const { chat: { id } } = msg;
-//     bot.sendMessage(id, `Введите ФИО пациента с помощью команды /FIO Например: /FIO Иванов Иван Иванович`)
+// Object.keys(arch).forEach(i => {
+//     console.log(arch[i])
 // })
+const BOT_TOKEN = '2064238273:AAFEVdDRRvewDRkXAW4_Xow-RZ-47eiAMMc'
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-// bot.onText(/\/FIO (.+)/i, (msg, [source, match]) => {
-//     const { chat: { id } } = msg;
-//     const fio = match.replace(regexp, replacer)
-//     patientData.fio = fio;
-//     bot.sendMessage(id, `Спасибо 😘😘😘. Теперь нам нужно фото протокола. 
-//     Прикрепите фото протокола и отправьте его`)
-// })
+
+const regexp = /([А-ЯЁа-яё]+)\s([А-ЯЁа-яё]+)\s([А-ЯЁа-яё]+)/
+
+const replacer = (match, p1, p2, p3) => [p1[0].toUpperCase()+p1.slice(1), p2[0].toUpperCase(), p3[0].toUpperCase()].join(' ')
+
+
+
+bot.onText(/\/start/, (msg) => {
+    const { chat: { id } } = msg;
+    bot.sendMessage(id, `Введите ФИО пациента с помощью команды /FIO Например: /FIO Иванов Иван Иванович`)
+})
+
+bot.onText(/^[\d,\n\b]+$/i, (msg, [source, match]) => {
+    const { chat: { id } } = msg;
+    // const fio = match.replace(regexp, replacer)
+    // patientData.fio = fio;
+    bot.sendMessage(id, `Спасибо 😘😘😘. Теперь нам нужно фото протокола. 
+    Прикрепите фото протокола и отправьте его`)
+})
 
 
 // bot.on('photo', async (doc) => {

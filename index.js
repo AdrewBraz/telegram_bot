@@ -1,5 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api'
-import { format } from 'date-fns'
+import generatePng from './generatePng'
 import getDirectoryStructure from './getDirectoryStructure'
 
 
@@ -18,27 +18,26 @@ const arch = getDirectoryStructure(pathName)
 const keys = Object.keys(arch)
 
 const getFullPath = (history, arch) => {
-    let i = 0
+    const { num, type } = history;
+    const key = type === 'day' ? 'dayHospRange' : 'roundHospRange'
+    console.log(history)
     let result = pathName
-    do{
-        i = i + 1
-        result = `${pathName}${keys[i]}`
-    }while(!history.between(arch[keys[i]].roundHospRange))
-    return `${result}\\${history}`
+    for(let i = 0; i < keys.length; i++){
+        console.log(arch[keys[i]])
+        if(num.between(arch[keys[i]].get(key))){
+            return `${result}${keys[i]}\\${num}`
+        }
+        continue
+    }
+    return ''
 }
 
-const resPath = getFullPath('2322', arch)
-
-// Object.keys(arch).forEach(i => {
-//     console.log(arch[i])
-// })
 const BOT_TOKEN = '2064238273:AAFEVdDRRvewDRkXAW4_Xow-RZ-47eiAMMc'
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 
-const regexp = /([А-ЯЁа-яё]+)\s([А-ЯЁа-яё]+)\s([А-ЯЁа-яё]+)/
-
-const replacer = (match, p1, p2, p3) => [p1[0].toUpperCase()+p1.slice(1), p2[0].toUpperCase(), p3[0].toUpperCase()].join(' ')
+const regexp = /^[\d,\s]+$/gi
+const hisRegexp = /[,\s]+/gi
 
 
 
@@ -47,12 +46,14 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(id, `Введите ФИО пациента с помощью команды /FIO Например: /FIO Иванов Иван Иванович`)
 })
 
-bot.onText(/^[\d,\n\b]+$/i, (msg, [source, match]) => {
+bot.onText(regexp, async(msg, [source, match]) => {
     const { chat: { id } } = msg;
-    // const fio = match.replace(regexp, replacer)
+    const { text } = msg
+    const arr = text.split(hisRegexp).map(item => Number(item) > 30000 ? {type: 'day', num: item} : {type: 'round', num: item})
+    const listOfPaths = arr.map(item => getFullPath(item, arch)).filter(item => item.length > 0)
+    await generatePng(listOfPaths, bot, id)
     // patientData.fio = fio;
-    bot.sendMessage(id, `Спасибо 😘😘😘. Теперь нам нужно фото протокола. 
-    Прикрепите фото протокола и отправьте его`)
+    bot.sendMessage(id, `Список полностью конвертирован 🎈`)
 })
 
 
